@@ -10,7 +10,7 @@
 
 <!-- content -->
 
-**vartests** is a Python library to perform some statistic tests to evaluate Value at Risk (VaR) Models, such as:
+**vartests** is a Python library to perform some statistical tests to evaluate Value at Risk (VaR) Models, such as:
 
 - **T-test**: verify if mean of distribution is zero;
 - **Kupiec Test (1995)**: verify if the number of violations is consistent with the violations predicted by the model;
@@ -61,8 +61,7 @@ The dataframe looks like:
   | 1376.018638   | -5719.833100    |            0 |'
 ```
 
-Not all tests should be applied to the VaR Model. Some of them its applied whether the VaR Model has assumption of zero mean or follow a specific distribution.
-So you should test the data:
+Not all tests should be applied to the VaR Model. Some of them should be applied when the VaR Model has the assumption of zero mean or follow a specific distribution.
 
 ```python
 import vartests
@@ -70,7 +69,7 @@ import vartests
 vartests.zero_mean_test(pnl.values, conf_level=0.95)
 ```
 
-This assumption is commom used in parametric VaR like EWMA and GARCH Models. Besides that, is necessary check assumption of distribution. So you should test with Berkowitz (2001):
+This assumption is commonly used in parametric VaR like EWMA and GARCH Models. Besides that, is necessary check assumption of the distribution. So you should test with Berkowitz (2001):
 
 ```python
 import vartests
