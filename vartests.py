@@ -41,7 +41,7 @@ def zero_mean_test(data, true_mu=0, conf_level=0.95):
     else:
         decision = "Reject H0."
 
-    answer = {"null hipothesis":H0,
+    answer = {"null hypothesis":H0,
               "decision":decision,
               "t-test statistc":t,
               "t-tabuladed":t_padrao,
