@@ -177,7 +177,7 @@ def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
     chi_square_test = chi2.cdf(test,1) #one degree of freedom
     
     if chi_square_test < conf_level: result = "Fail to reject H0"
-    elif V==np.inf: result = "Reject H0"
+    elif v==0 and N<=255 and var_conf_level==0.99: result = "Fail to reject H0"
     else: result = "Reject H0"
         
     return {"statictic test":test, "chi square value":chi_square_test, 
