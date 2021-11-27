@@ -51,8 +51,8 @@ def zero_mean_test(data, true_mu=0, conf_level=0.95):
 
 def duration_test(violations, conf_level=0.95):
     '''Perform the Christoffersen and Pelletier Test (2004) called Duration Test.
-        The main goal is to know if VaR Model has quickly response to market movements
-        by consequence the violations do not form volatility clusters.
+        The main objective is to know if the VaR model responds quickly to market movements
+         in order to do not form volatility clusters.
         Duration is time betwenn violations of VaR.
         This test verifies if violations has no memory i.e. should be independent.
         
@@ -62,31 +62,43 @@ def duration_test(violations, conf_level=0.95):
         Returns:
             answer (dict):       statistics and decision of the test
     '''
-    
+    if isinstance(violations, pd.core.series.Series):
+        N = violations[violations==0].count()
+        first_hit = violations.iloc[0]
+        last_hit = violations.iloc[-1]
+    elif isinstance(violations, pd.core.frame.DataFrame):
+        N = violations[violations==0].count().values[0]
+        first_hit = violations.iloc[0][0]
+        last_hit = violations.iloc[-1][0]
+        
     duration = [i for i, x in enumerate(violations) if x==1]
-
+    
     diff_duration = np.diff(duration)
     
     TN = len(violations)
-    N = violations.sum()
     C = np.zeros(len(diff_duration))
     
-    if violations.iloc[0]==0:
+    if not duration:
+        D=np.array([0,0])
+        C=np.array([0,0])
+    
+    if first_hit==0 and duration:
         C = np.append(1,C)
         D = np.append(duration[1], diff_duration)
         
-    if violations.iloc[-1]==0:
+    if last_hit==0 and duration:
         C = np.append(C, 1)
         D = np.append(D, TN-duration[-1]-1)
         
-    N = len(D)-1
+    if N>0 and duration: N = len(D)-1
+    else: N=0
       
     def likDurationW(x, D, C, N):
         b = x
         a = ( (N - C[0] - C[N])/(sum(D**b)) )**(1/b)
         lik = C[0]* np.log(pweibull(D[0],a,b,survival=True)) + (1-C[0]) * dweibull(D[0], a, b, log = True) +\
-    					sum(dweibull(D[1:(N-1)], a, b, log = True) ) + C[N]*np.log(pweibull(D[N],a,b,survival = True) )  +\
-    									(1 - C[N]) *dweibull(D[N], a, b, log = True)
+            sum(dweibull(D[1:(N-1)], a, b, log = True) ) + C[N]*np.log(pweibull(D[N],a,b,survival = True) )  +\
+                (1 - C[N]) *dweibull(D[N], a, b, log = True)
                 
         if np.isnan(lik) or np.isinf(lik): 
             lik = 1e10
@@ -95,13 +107,13 @@ def duration_test(violations, conf_level=0.95):
     
     # When b=1 we get the exponential
     def dweibull(D, a, b, log=False):
-     	# density of Weibull
+        # density of Weibull
         pdf = b * np.log(a) + np.log(b) + (b - 1) * np.log(D) - (a * D)**b
         if not log: pdf = np.exp(pdf)
         return pdf
     
     def pweibull(D, a, b, survival = False):
-    	# distribution of Weibull
+        # distribution of Weibull
         cdf = 1 - np.exp(-(a*D)**b)
         if survival: cdf = 1 - cdf
         return cdf
@@ -132,7 +144,6 @@ def duration_test(violations, conf_level=0.95):
               "decision":decision}
     
     return answer
-
 def failure_rate(violations):
     TN = len(violations)
     N = violations.sum()
