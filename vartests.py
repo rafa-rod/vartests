@@ -153,6 +153,7 @@ def failure_rate(violations):
     return N/TN
 
 def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
+   
     '''Perform Kupiec Test (1995).
        The main goal is to verify if the number of violations, i.e. proportion of failures, is consistent with the
        violations predicted by the model.
@@ -165,16 +166,15 @@ def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
             answer (dict):          statistics and decision of the test
     '''
     if isinstance(violations, pd.core.series.Series):
-        N = violations[violations==0].count()
         v = violations[violations==1].count()
     elif isinstance(violations, pd.core.frame.DataFrame):
-        N = violations[violations==0].count().values[0]
         v = violations[violations==1].count().values[0]
-        
+
+    N = violations.shape[0]
     theta= 1-(v/N)
-    
+
     if v < 0.001:
-        V = -2*np.log((1-theta)**(N))
+        V = -2*np.log((1-(v/N))**(N))
     else:
         part1 = ((1-var_conf_level)**(v)) * (var_conf_level**(N-v))
         
@@ -196,7 +196,7 @@ def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
     return {"statictic test":V, "chi square value":chi_square_test, 
             "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
             "result":result}
-  
+
 def berkowtiz_tail_test(pnl, volatility_window=252, 
                         var_conf_level=0.99, conf_level=0.95, random_seed=443):
     '''Perform Berkowitz Test (2001).
