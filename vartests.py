@@ -50,6 +50,7 @@ def zero_mean_test(data, true_mu=0, conf_level=0.95):
     return answer
 
 def duration_test(violations, conf_level=0.95):
+    
     '''Perform the Christoffersen and Pelletier Test (2004) called Duration Test.
         The main objective is to know if the VaR model responds quickly to market movements
          in order to do not form volatility clusters.
@@ -84,7 +85,7 @@ def duration_test(violations, conf_level=0.95):
     
     if first_hit==0 and duration:
         C = np.append(1,C)
-        D = np.append(duration[1], diff_duration)
+        D = np.append(duration[0], diff_duration) #days until first violation
         
     if last_hit==0 and duration:
         C = np.append(C, 1)
@@ -144,6 +145,7 @@ def duration_test(violations, conf_level=0.95):
               "decision":decision}
     
     return answer
+
 def failure_rate(violations):
     TN = len(violations)
     N = violations.sum()
