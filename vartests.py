@@ -10,10 +10,12 @@ import time
 import pygosolnp
 import pandas as pd
 from tqdm import tqdm
+from typing import List, Union, Dict
+
 import warnings
 warnings.filterwarnings("ignore")
 
-def zero_mean_test(data, true_mu=0, conf_level=0.95):
+def zero_mean_test(data: pd.DataFrame, true_mu: float = 0, conf_level: float = 0.95) -> Dict:
     ''' Perfom a t-Test if mean of distribution:
          - null hypothesis (H0) = zero
          - alternative hypothesis (H1) != zero
@@ -49,7 +51,7 @@ def zero_mean_test(data, true_mu=0, conf_level=0.95):
     
     return answer
 
-def duration_test(violations, conf_level=0.95):
+def duration_test(violations: Union[List[int], pd.Series, pd.DataFrame], conf_level: float = 0.95) -> Dict:
     
     '''Perform the Christoffersen and Pelletier Test (2004) called Duration Test.
         The main objective is to know if the VaR model responds quickly to market movements
@@ -71,6 +73,10 @@ def duration_test(violations, conf_level=0.95):
         N = violations[violations==0].count().values[0]
         first_hit = violations.iloc[0][0]
         last_hit = violations.iloc[-1][0]
+    elif isinstance(violations, List) or isinstance(violations, np.ndarray):
+        N = sum(violations)
+        first_hit = violations[0]
+        last_hit = violations[-1]  
         
     duration = [i for i, x in enumerate(violations) if x==1]
     
@@ -152,7 +158,7 @@ def failure_rate(violations):
     print(f"Failure rate of {round((N/TN)*100,2)}%")
     return N/TN
 
-def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
+def kupiec_test(violations: Union[pd.Series, pd.DataFrame], var_conf_level: float = 0.99, conf_level: float = 0.95) -> Dict:
    
     '''Perform Kupiec Test (1995).
        The main goal is to verify if the number of violations, i.e. proportion of failures, is consistent with the
@@ -197,8 +203,8 @@ def kupiec_test(violations, var_conf_level=0.99, conf_level=0.95):
             "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
             "result":result}
 
-def berkowtiz_tail_test(pnl, volatility_window=252, 
-                        var_conf_level=0.99, conf_level=0.95, random_seed=443):
+def berkowtiz_tail_test(pnl: pd.DataFrame, volatility_window: int = 252, 
+                        var_conf_level: float = 0.99, conf_level: float = 0.95, random_seed: int = 443) -> Dict:
     '''Perform Berkowitz Test (2001).
         The goal is to verify if conditional distributions of returns "GARCH(1,1)" 
         used in the VaR Model is adherent to the data.
