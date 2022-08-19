@@ -10,26 +10,25 @@ sys.path.append(path)
 
 from vartests import duration_test
 
+
 def get_violations(repeat: int = 10) -> List:
-    return [random.randint(0, 1) for x in range(repeat)]
+    return [random.randint(0, 1) for _ in range(repeat)]
 
-class TestClass():
 
-      def __init__(self):
+@pytest.fixture
+def violations():
+    res = []
+    for _ in range(10):
+        t = get_violations(100)
+        t[0] = random.randint(0, 1)
+        t[-1] = random.randint(0, 1)
+        res.append(t)
+    return res
+
+
+class TestClass:
+    def test_detecttrend(self, violations):
         self.conf_level = 0.95
+        for i, violate in enumerate(violations):
+            duration_test(violate, self.conf_level)
 
-      def test_detecttrend(self):
-        self.violations = get_violations(142)
-        duration_test(self.violations , self.conf_level)
-        self.violations = pd.DataFrame(np.array([0]*142))
-        duration_test(self.violations , self.conf_level)
-        self.violations = pd.DataFrame(np.array([1]+[0]*141))
-        duration_test(self.violations , self.conf_level)
-        self.violations = pd.DataFrame(np.array([1]+[0]*140+[1]))
-        duration_test(self.violations , self.conf_level)
-        self.violations = pd.DataFrame(np.array([0]*141+[1]))
-        duration_test(self.violations , self.conf_level)
-        self.violations = np.array([0]*141+[1])
-        duration_test(self.violations , self.conf_level)
-
-TestClass()

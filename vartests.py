@@ -99,16 +99,19 @@ def duration_test(
     C = np.zeros(len(diff_duration))
 
     if not duration:
-        D = np.array([0, 0])
-        C = np.array([0, 0])
+        return
 
-    if first_hit == 0 and duration:
-        C = np.append(1, C)
+    if first_hit == 0:
         D = np.append(duration[0], diff_duration)  # days until first violation
+    else:
+        D = diff_duration.copy()
 
-    if last_hit == 0 and duration:
-        C = np.append(C, 1)
+    if last_hit == 0:
         D = np.append(D, TN - duration[-1] - 1)
+
+    C = np.zeros(len(D))
+    C[0] = not first_hit
+    C[-1] = not last_hit
 
     if N > 0 and duration:
         N = len(D) - 1
