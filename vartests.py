@@ -27,7 +27,9 @@ def zero_mean_test(data: pd.DataFrame, true_mu: float = 0, conf_level: float = 0
         Returns:
             answer (dict):      statistics and decision of the test
     '''
-
+   if not isinstance(pnl, pd.DataFrame):
+      raise ValueError("Input must be dataframe.")
+        
     significance = 1-conf_level
     
     mean = np.mean(data)
@@ -76,7 +78,9 @@ def duration_test(violations: Union[List[int], pd.Series, pd.DataFrame], conf_le
     elif isinstance(violations, List) or isinstance(violations, np.ndarray):
         N = sum(violations)
         first_hit = violations[0]
-        last_hit = violations[-1]  
+        last_hit = violations[-1]
+    else:
+        raise ValueError("Input must be list, array, series or dataframe.")
         
     duration = [i for i, x in enumerate(violations) if x==1]
     
@@ -175,6 +179,8 @@ def kupiec_test(violations: Union[pd.Series, pd.DataFrame], var_conf_level: floa
         v = violations[violations==1].count()
     elif isinstance(violations, pd.core.frame.DataFrame):
         v = violations[violations==1].count().values[0]
+    else:
+        raise ValueError("Input must be series or dataframe.")
 
     N = violations.shape[0]
     theta= 1-(v/N)
@@ -219,6 +225,8 @@ def berkowtiz_tail_test(pnl: pd.DataFrame, volatility_window: int = 252,
         Returns:
             answer (dict):           statistics and decision of the test
     '''
+    if not isinstance(pnl, pd.DataFrame):
+        raise ValueError("Input must be dataframe.")
         
     print("Normalizing returns...")
     conditional_vol, conditional_mean = pd.DataFrame(), pd.DataFrame()
