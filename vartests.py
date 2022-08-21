@@ -69,72 +69,69 @@ def duration_test(
          in order to do not form volatility clusters.
         Duration is time betwenn violations of VaR.
         This test verifies if violations has no memory i.e. should be independent.
-        
+
         Parameters:
             violations (series): series of violations of VaR
             conf_level (float):  test confidence level
         Returns:
             answer (dict):       statistics and decision of the test
     """
-    if isinstance(violations, pd.core.series.Series):
-        N = violations[violations == 0].count()
-        first_hit = violations.iloc[0]
-        last_hit = violations.iloc[-1]
-    elif isinstance(violations, pd.core.frame.DataFrame):
-        N = violations[violations == 0].count().values[0]
-        first_hit = violations.iloc[0][0]
-        last_hit = violations.iloc[-1][0]
-    elif isinstance(violations, List) or isinstance(violations, np.ndarray):
-        N = sum(violations)
-        first_hit = violations[0]
-        last_hit = violations[-1]
-    else:
+    typeok = False
+    if isinstance(violations, pd.core.series.Series) or isinstance(violations, pd.core.frame.DataFrame):
+        violations = violations.values.flatten()
+        typeok = True
+    elif isinstance(violations, np.ndarray):
+        violations = violations.flatten()
+        typeok = True        
+    elif isinstance(violations, List):
+        typeok = True
+    if not typeok:
         raise ValueError("Input must be list, array, series or dataframe.")
+        
+    N = sum(violations)
+    first_hit = violations[0]
+    last_hit = violations[-1]
 
-    duration = [i for i, x in enumerate(violations) if x == 1]
+    duration = [i+1 for i, x in enumerate(violations) if x == 1]
 
-    diff_duration = np.diff(duration)
+    D = np.diff(duration)
 
     TN = len(violations)
-    C = np.zeros(len(diff_duration))
+    C = np.zeros(len(D))
 
-    if not duration:
-        return
-
+    if not duration or (D.shape[0]==0 and len(duration)==0):
+        duration = [0]
+        D = [0]
+        N = 1
+       
     if first_hit == 0:
-        D = np.append(duration[0], diff_duration)  # days until first violation
-    else:
-        D = diff_duration.copy()
+        C = np.append(1, C)
+        D = np.append(duration[0], D)  # days until first violation
 
     if last_hit == 0:
-        D = np.append(D, TN - duration[-1] - 1)
-
-    C = np.zeros(len(D))
-    C[0] = not first_hit
-    C[-1] = not last_hit
-
-    if N > 0 and duration:
-        N = len(D) - 1
+        C = np.append(C, 1)
+        D = np.append(D, TN - duration[-1])
+       
     else:
-        N = 0
-
+        N = len(D)
+        
     def likDurationW(x, D, C, N):
         b = x
-        a = ((N - C[0] - C[N]) / (sum(D ** b))) ** (1 / b)
+        a = ((N - C[0] - C[N-1]) / (sum(D ** b))) ** (1 / b)
         lik = (
             C[0] * np.log(pweibull(D[0], a, b, survival=True))
             + (1 - C[0]) * dweibull(D[0], a, b, log=True)
             + sum(dweibull(D[1 : (N - 1)], a, b, log=True))
-            + C[N] * np.log(pweibull(D[N], a, b, survival=True))
-            + (1 - C[N]) * dweibull(D[N], a, b, log=True)
+            + C[N-1] * np.log(pweibull(D[N-1], a, b, survival=True))
+            + (1 - C[N-1]) * dweibull(D[N-1], a, b, log=True)
         )
-
+    
         if np.isnan(lik) or np.isinf(lik):
             lik = 1e10
         else:
             lik = -lik
         return lik
-
+    
     # When b=1 we get the exponential
     def dweibull(D, a, b, log=False):
         # density of Weibull
@@ -142,7 +139,7 @@ def duration_test(
         if not log:
             pdf = np.exp(pdf)
         return pdf
-
+    
     def pweibull(D, a, b, survival=False):
         # distribution of Weibull
         cdf = 1 - np.exp(-((a * D) ** b))
@@ -158,7 +155,7 @@ def duration_test(
 
     b = optimizedBetas.x
     uLL = -likDurationW(b, D, C, N)
-    rLL = -likDurationW(1, D, C, N)
+    rLL = -likDurationW(np.array([1]), D, C, N)
     LR = 2 * (uLL - rLL)
     LRp = 1 - chi2.cdf(LR, 1)
 
