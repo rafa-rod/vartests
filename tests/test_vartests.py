@@ -8,7 +8,6 @@ import numpy as np
 import sys
 
 sys.path.append("./vartests/")
-sys.path.append("./vartests/vartests")
 
 from vartests import duration_test
 
