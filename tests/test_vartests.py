@@ -7,21 +7,19 @@ import pandas as pd
 import numpy as np
 import sys
 
-path = "../vartests/"
-sys.path.append(path)
+sys.path.append("./vartests/")
+sys.path.append("./vartests/vartests")
 
 from vartests import duration_test
 
-def get_violations(repeat: int = 10) -> List:
+def get_violations(repeat: int = 10) -> List[int]:
     return [random.randint(0, 1) for _ in range(repeat)]
 
 class TestClass():
-
-    def __init__(self):
-        self.conf_level = 0.95
             
     def test_duration(self):
         violations = [1,1,1,1,1]
+        self.conf_level = 0.95
         result = duration_test(violations, self.conf_level)
         assert result["weibull exponential"] == [10.] and result["decision"] == "Reject H0"
         
