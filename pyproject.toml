@@ -1,9 +1,11 @@
 [tool.poetry]
 name = "vartests"
-version = "0.1.16"
+version = "0.2.0.1"
 description = "Statistic tests for Value at Risk (VaR) Models."
 authors = ["Rafael Rodrigues <rafael.rafarod@gmail.com>"]
 license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/rafa-rod/vartests.git"
 
 [tool.poetry.dependencies]
 python = "^3.8"

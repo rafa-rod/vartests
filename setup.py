@@ -1,20 +1,21 @@
 ﻿# -*- coding: utf-8 -*-
+
 from setuptools import setup
 import subprocess
-from os import path
+import os
 
-this_directory = path.abspath(path.dirname(__file__))
+PACKAGE = "vartests"
 
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+with open('README.md', encoding='utf-8') as f:
+	long_description = f.read()
 
-out = subprocess.Popen(['python', path.join(this_directory,'version.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+out = subprocess.Popen(['python', os.path.join('src', PACKAGE, 'version.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 stdout, _ = out.communicate()
 version = stdout.decode("utf-8").strip()
 print(version)
 
 modules = \
-['vartests']
+[PACKAGE]
 install_requires = \
 ['arch>=5.0.1,<6.0.0',
  'pandas>=1.3.4,<2.0.0',
@@ -22,17 +23,18 @@ install_requires = \
  'tqdm>=4.62.3,<5.0.0']
 
 setup_kwargs = {
-    'name': 'vartests',
+    'name': PACKAGE,
     'version': version,
     'description': 'Statistic tests for Value at Risk (VaR) Models.',
     'long_description': long_description,
-    'long_description_content_type':'text/markdown',
+    'long_description_content_type': 'text/markdown',
     'author': 'Rafael Rodrigues',
     'author_email': 'rafael.rafarod@gmail.com',
     'maintainer': None,
     'maintainer_email': None,
-    'url': "https://github.com/rafa-rod/vartests",
+    'url': f"https://github.com/rafa-rod/{PACKAGE}",
     'py_modules': modules,
+    'include_package_data': True,
     'install_requires': install_requires,
     'python_requires': '>=3.8,<4.0',
 }

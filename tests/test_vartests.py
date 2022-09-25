@@ -3,11 +3,10 @@
 import random
 from typing import List
 import pandas as pd
-
 import numpy as np
-import sys
 
-sys.path.append("./vartests/")
+import sys
+sys.path.append("./src/vartests")
 
 from vartests import duration_test
 
