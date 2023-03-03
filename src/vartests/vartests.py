@@ -88,7 +88,7 @@ def duration_test(
     if not typeok:
         raise ValueError("Input must be list, array, series or dataframe.")
         
-    N = sum(violations)
+    N = int(sum(violations))
     first_hit = violations[0]
     last_hit = violations[-1]
 
