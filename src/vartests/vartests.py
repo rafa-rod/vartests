@@ -183,7 +183,7 @@ def failure_rate(violations: Union[List[int], pd.Series, pd.DataFrame]) -> Dict:
     if isinstance(violations, pd.core.series.Series) or isinstance(
         violations, pd.core.frame.DataFrame
     ):
-        N = N = violations.sum()
+        N = violations.sum()
     elif isinstance(violations, List) or isinstance(violations, np.ndarray):
         N = sum(violations)
     else:
