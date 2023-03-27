@@ -213,44 +213,37 @@ def kupiec_test(
             answer (dict):          statistics and decision of the test
     """
     if isinstance(violations, pd.core.series.Series):
-        v = violations[violations == 1].count()
+        n1 = violations[violations == 1].count()
     elif isinstance(violations, pd.core.frame.DataFrame):
-        v = violations[violations == 1].count().values[0]
+        n1 = violations[violations == 1].count().values[0]
+    elif isinstance(violations, list):
+        lista_array = np.array(lista)
+        n1 = len(lista_array[lista_array==1])
+    elif isinstance(lista_array, np.ndarray):
+        n1 = len(lista_array[lista_array==1])
     else:
-        raise ValueError("Input must be series or dataframe.")
+        raise ValueError("Input must be list, array, series or dataframe.")
+        
+    critical_value = 1-var_conf_level
+    n = len(violations)
+    n0 = n - n1
+    pi_obs = n1/n
+    
+    LR = -2* (n1*np.log(critical_value)+n0*np.log(1-critical_value)-n1*np.log(pi_obs)-n0*np.log(1-pi_obs))
 
-    N = violations.shape[0]
-    theta = 1 - (v / N)
+    critical_chi_square = chi2.ppf(conf_level, 1)  # one degree of freedom
 
-    if v < 0.001:
-        V = -2 * np.log((1 - (v / N)) ** (N))
-    else:
-        part1 = ((1 - var_conf_level) ** (v)) * (var_conf_level ** (N - v))
-
-        part11 = ((1 - theta) ** (v)) * (theta ** (N - v))
-
-        fact = math.factorial(N) / (math.factorial(v) * math.factorial(N - v))
-
-        num1 = part1 * fact
-        den1 = part11 * fact
-
-        V = -2 * (np.log(num1 / den1))
-
-    chi_square_test = chi2.cdf(V, 1)  # one degree of freedom
-
-    if chi_square_test < conf_level:
-        result = "Fail to reject H0"
-    elif v == 0 and N <= 255 and var_conf_level == 0.99:
-        result = "Fail to reject H0"
-    else:
+    if LR>critical_chi_square:
         result = "Reject H0"
+    else:
+        result = "Fail to reject H0"
 
     return {
-        "statictic test": V,
-        "chi square value": chi_square_test,
+        "log-likelihood": LR,
+        "chi square critical value": critical_chi_square,
         "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
-        "result": result,
-    }
+        "result": result
+            }
 
 
 def berkowtiz_tail_test(
