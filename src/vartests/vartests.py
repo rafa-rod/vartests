@@ -280,7 +280,7 @@ def berkowtiz_tail_test(
 
     print("Normalizing returns...")
     conditional_vol, conditional_mean = pd.DataFrame(), pd.DataFrame()
-    for t in tqdm(range(pnl.shape[0] - volatility_window + 1)):
+    for t in tqdm(range(pnl.shape[0] - volatility_window)):
         am = arch.arch_model(
             pnl[(t) : (volatility_window + t)],
             vol="GARCH",
@@ -292,9 +292,12 @@ def berkowtiz_tail_test(
         conditional_vol = pd.concat([conditional_vol, cond_vol])
         conditional_mean = pd.concat([conditional_mean, cond_mean])
 
-    ret_padr = (pnl.values - conditional_mean.values) / conditional_vol.values
+    #standardized returns with inconditional mean and forecasted condicitional volatility
+    ret_padr = (pnl[volatility_window:].values.flatten() - pnl[volatility_window:].mean().values[0]) / conditional_vol.values.flatten()
 
     zeta = stats.norm.ppf(stats.norm.cdf(ret_padr))
+    zeta[zeta == np.inf] = 0
+    zeta[zeta == -np.inf] = 0
 
     alpha = 1 - var_conf_level
     significance = 1 - conf_level

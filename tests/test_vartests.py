@@ -5,10 +5,13 @@ from typing import List
 import pandas as pd
 import numpy as np
 
+from scipy.stats import lognorm
+
 import sys
 sys.path.append("./src/vartests")
 
 from vartests import duration_test
+from vartests import berkowtiz_tail_test
 
 def get_violations(repeat: int = 10) -> List[int]:
     return [random.randint(0, 1) for _ in range(repeat)]
@@ -66,5 +69,25 @@ class TestClass():
             t[0] = random.randint(0, 1)
             t[-1] = random.randint(0, 1)
             _ = duration_test(t)
+
+    def test_berkowtiz_tail_test(self):
+        
+        PnL = pd.DataFrame( -lognorm.rvs(1., 3, 1.3, size=500) )
+
+        result = berkowtiz_tail_test(PnL, volatility_window=250, var_conf_level=0.99, conf_level=0.95)
+        assert result["decision"] == "Reject H0"
+
+        mu, beta = 0.2, 1.1 # location and scale
+        s = np.random.gumbel(mu, beta, 500)
+        PnL = pd.DataFrame(-s)
+
+        result = berkowtiz_tail_test(PnL, volatility_window=250, var_conf_level=0.99, conf_level=0.95)
+        assert result["decision"] == "Reject H0"
+
+        PnL = pd.DataFrame(np.random.normal(0,1,500))
+
+        result = berkowtiz_tail_test(PnL, volatility_window=250, var_conf_level=0.99, conf_level=0.95)
+        assert result["decision"] == "Fail to Reject H0"
+
             
 TestClass()
