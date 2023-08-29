@@ -72,7 +72,7 @@ Not all tests should be applied to the VaR Model. Some of them should be applied
 ```python
 import vartests
 
-vartests.zero_mean_test(pnl.values, conf_level=0.95)
+vartests.zero_mean_test(pnl, conf_level=0.95)
 ```
 
 This assumption is commonly used in parametric VaR like EWMA and GARCH Models. Besides that, is necessary check assumption of the distribution. So you should test with Berkowitz (2001):
