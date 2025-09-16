@@ -2,12 +2,11 @@
 
 from scipy import stats
 import numpy as np
-from scipy import optimize
+from scipy import optimize, minimize
 from scipy.stats import chi2
 import math
 import arch
 import time
-import pygosolnp
 import pandas as pd
 from tqdm import tqdm
 from typing import List, Union, Dict
@@ -292,7 +291,7 @@ def berkowtiz_tail_test(
         conditional_vol = pd.concat([conditional_vol, cond_vol])
         conditional_mean = pd.concat([conditional_mean, cond_mean])
 
-    #standardized returns with inconditional mean and forecasted condicitional volatility
+    # Standardized returns with inconditional mean and forecasted conditional volatility
     ret_padr = (pnl[volatility_window:].values.flatten() - pnl[volatility_window:].mean().values[0]) / conditional_vol.values.flatten()
 
     zeta = stats.norm.ppf(stats.norm.cdf(ret_padr))
@@ -303,8 +302,8 @@ def berkowtiz_tail_test(
     significance = 1 - conf_level
 
     def objective(x):
-        # pars[0] => media
-        # pars[1] => vol incondicional
+        # x[0] => media
+        # x[1] => vol incondicional
         p1 = zeta[np.where(zeta < stats.norm.ppf((alpha)))]
         p2 = zeta[np.where(zeta >= stats.norm.ppf(alpha))] * 0 + stats.norm.ppf(alpha)
         return -(
@@ -314,26 +313,33 @@ def berkowtiz_tail_test(
 
     print("Optimizing...")
     start = time.time()
-    optimum_result = pygosolnp.solve(
-        obj_func=objective,
-        par_lower_limit=[-10, 0.01],
-        par_upper_limit=[10, 3],
-        number_of_simulations=200,  # This represents the number of starting guesses to use
-        number_of_restarts=20,  # This specifies how many restarts to run from the best starting guesses
-        number_of_processes=None,  # None here means to run everything single-processed
-        seed=random_seed,  # Seed for reproducibility, if omitted the default random seed is used (typically cpu clock based)
-        pysolnp_max_major_iter=100,  # Pysolnp property
-        debug=False,
-    )
-    print("")
+    
+    # Configurar semente para reproducibilidade
+    np.random.seed(random_seed)
+    
+    # Inicializações múltiplas para simular restarts
+    n_simulations = 200
+    n_restarts = 20
+    best_result = None
+    best_obj_value = np.inf
+    initial_guesses = [np.random.uniform(low=[-10, 0.01], high=[10, 3], size=2) for _ in range(n_simulations)]
+    
+    for guess in initial_guesses[:n_restarts]:
+        result = minimize(
+            objective,
+            x0=guess,
+            method='L-BFGS-B',
+            bounds=[(-10, 10), (0.01, 3)],
+            options={'maxiter': 100, 'disp': False}
+        )
+        if result.success and result.fun < best_obj_value:
+            best_obj_value = result.fun
+            best_result = result
+
     print(f"Elapsed time: {time.time() - start} s")
 
-    # all_results = optimum_result.all_results
-    # print("; ".join([f"Solution {index + 1}: {solution.obj_value}" for index, solution in enumerate(all_results)]))
-    best_solution = optimum_result.best_solution
-    # print(f"Best solution {best_solution.obj_value} for parameters {best_solution.parameters}.")
-
-    uLL = -best_solution.obj_value
+    # Resultados
+    uLL = -best_result.fun
     rLL = -objective([0, 1])
     LR = 2 * (uLL - rLL)
     chid = 1 - stats.chi2.cdf(LR, 2)
@@ -344,7 +350,7 @@ def berkowtiz_tail_test(
     H0 = "Distribuition is Normal(0,1)"
 
     answer = {
-        "solution": best_solution,
+        "solution": best_result,  # Objeto OptimizeResult do scipy
         "ull": uLL,
         "rll": rLL,
         "LR": LR,

@@ -19,7 +19,6 @@ modules = \
 install_requires = \
 ['arch>=5.0.1',
  'pandas>=1.3.4,
- 'pygosolnp>=2021.5.1',
  'tqdm>=4.62.3']
 
 setup_kwargs = {
