@@ -17,10 +17,10 @@ print(version)
 modules = \
 [PACKAGE]
 install_requires = \
-['arch>=5.0.1,<6.0.0',
- 'pandas>=1.3.4,<2.0.0',
- 'pygosolnp>=2021.5.1,<2022.0.0',
- 'tqdm>=4.62.3,<5.0.0']
+['arch>=5.0.1',
+ 'pandas>=1.3.4,
+ 'pygosolnp>=2021.5.1',
+ 'tqdm>=4.62.3']
 
 setup_kwargs = {
     'name': PACKAGE,
