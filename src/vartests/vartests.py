@@ -2,7 +2,7 @@
 
 from scipy import stats
 import numpy as np
-from scipy import optimize, minimize
+from scipy import optimize
 from scipy.stats import chi2
 import math
 import arch
@@ -325,7 +325,7 @@ def berkowtiz_tail_test(
     initial_guesses = [np.random.uniform(low=[-10, 0.01], high=[10, 3], size=2) for _ in range(n_simulations)]
     
     for guess in initial_guesses[:n_restarts]:
-        result = minimize(
+        result = optimize.minimize(
             objective,
             x0=guess,
             method='L-BFGS-B',
