@@ -230,20 +230,7 @@ def kupiec_test(
     n = len(violations)
     n0 = n - n1
     pi_obs = n1 / n
-
-    LR = -2 * (
-        n1 * np.log(critical_value)
-        + n0 * np.log(1 - critical_value)
-        - n1 * np.log(pi_obs)
-        - n0 * np.log(1 - pi_obs)
-    )
-
     critical_chi_square = chi2.ppf(conf_level, 1)  # one degree of freedom
-
-    if LR > critical_chi_square:
-        result = "Reject H0"
-    else:
-        result = "Fail to reject H0"
 
     if pi_obs == 0 or pi_obs == 1: # critical values
         return {
@@ -252,6 +239,18 @@ def kupiec_test(
                 "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
                 "result": "Reject H0",
                     }
+
+    LR = -2 * (
+        n1 * np.log(critical_value)
+        + n0 * np.log(1 - critical_value)
+        - n1 * np.log(pi_obs)
+        - n0 * np.log(1 - pi_obs)
+    )
+
+    if LR > critical_chi_square:
+        result = "Reject H0"
+    else:
+        result = "Fail to reject H0"
 
     return {
         "log-likelihood": LR,
