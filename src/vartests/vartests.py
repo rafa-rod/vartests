@@ -36,7 +36,7 @@ def zero_mean_test(
     significance = 1 - conf_level
 
     mean = np.mean(data)
-    std = np.std(data, ddof=1)
+    std = np.std(data, ddof=1).values[0]
 
     t = (mean - true_mu) / (std / np.sqrt(len(data)))
     """p<0.05, 2-tail"""
