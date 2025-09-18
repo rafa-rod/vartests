@@ -44,9 +44,9 @@ def zero_mean_test(
     pvalue = stats.ttest_1samp(data, popmean=true_mu, alternative="two-sided")[-1]
     H0 = "Mean of distribution = 0"
     if pvalue > significance:  # ou t < np.abs(t_padrao):
-        decision = "Fail to rejected H0."
+        decision = "Fail to rejected H0"
     else:
-        decision = "Reject H0."
+        decision = "Reject H0"
 
     answer = {
         "null hypothesis": H0,
