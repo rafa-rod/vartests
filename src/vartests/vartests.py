@@ -245,12 +245,20 @@ def kupiec_test(
     else:
         result = "Fail to reject H0"
 
+    if pi_obs == 0 or pi_obs == 1: # critical values
+        return {
+                "log-likelihood": np.inf,
+                "chi square critical value": critical_chi_square,
+                "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
+                "result": "Reject H0",
+                    }
+
     return {
         "log-likelihood": LR,
         "chi square critical value": critical_chi_square,
         "null hypothesis": f"Probability of failure is {round(1-var_conf_level,3)}",
         "result": result,
-    }
+            }
 
 
 def berkowtiz_tail_test(
