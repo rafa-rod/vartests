@@ -8,12 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/rafa-rod/vartests.git"
 
 [tool.poetry.dependencies]
-python = "^3.8"
-pandas = "^1.3.4"
-arch = "^5.0.1"
-pygosolnp = "^2021.5.1"
-tqdm = "^4.62.3"
-statsmodels = "^0.13.2"
+python = "^3.9"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
