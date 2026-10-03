@@ -1,18 +1,60 @@
 [tool.poetry]
 name = "vartests"
-version = "0.2.4"
+version = "0.3.0"
 description = "Statistic tests for Value at Risk (VaR) Models."
 authors = ["Rafael Rodrigues <rafael.rafarod@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/rafa-rod/vartests.git"
+repository = "https://github.com/rafa-rod/vartests"
+homepage = "https://github.com/rafa-rod/vartests"
+keywords = ["var", "value-at-risk", "backtest", "backtesting", "risk-management",
+            "kupiec", "christoffersen", "berkowitz", "binomial", "finance",
+            "quant", "quantitative-finance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+packages = [
+    { include = "vartests", from = "src" }
+]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
+numpy = ">=1.26.0"
+scipy = ">=1.13.1"
+pandas = ">=2.2.3"
+arch = ">=7.0.0"
+tqdm = ">=4.66.0"
 
-[tool.poetry.requires-plugins]
-poetry-plugin-export = ">=1.8"
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.2"
+pytest-cov = "^6.0.0"
+twine = ">=6.0"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source = ["src/vartests"]
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+omit = ["tests/*"]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if .debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

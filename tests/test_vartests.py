@@ -7,9 +7,6 @@ import numpy as np
 
 from scipy.stats import lognorm
 
-import sys
-sys.path.append("./src/vartests")
-
 from vartests import duration_test
 from vartests import berkowtiz_tail_test
 
@@ -71,6 +68,8 @@ class TestClass():
             _ = duration_test(t)
 
     def test_berkowtiz_tail_test(self):
+        np.random.seed(42)
+        np.random.seed(42)
         
         PnL = pd.DataFrame( -lognorm.rvs(1., 3, 1.3, size=500) )
 
@@ -90,4 +89,3 @@ class TestClass():
         assert result["decision"] == "Fail to Reject H0"
 
             
-TestClass()
