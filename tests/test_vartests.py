@@ -8,6 +8,11 @@ from scipy import stats
 import vartests
 from vartests import (
     berkowitz_tail_test,
+    binomial_power,
+    binomial_test,
+    mid_p_test,
+    poisson_binomial_pmf,
+    poisson_binomial_test,
     berkowtiz_tail_test,
     duration_test,
     failure_rate,
@@ -16,6 +21,11 @@ from vartests import (
     zero_mean_test,
 )
 from vartests.independence import _durations
+
+
+def _hits(x, n):
+    """x violações em n observações."""
+    return [1] * x + [0] * (n - x)
 
 
 def _clustered_violations(rng, T=1000, p01=0.012, p11=0.3):
@@ -95,6 +105,90 @@ class TestClass:
         assert result["decision"] == "Fail to reject H0"
         assert kupiec_test([0] * 250, var_conf_level=0.99)["decision"] == "Reject H0"
         assert kupiec_test([1] * 10, var_conf_level=0.99)["decision"] == "Reject H0"
+
+    # ==================== BINOMIAL / MID-P ====================
+    @pytest.mark.parametrize(
+        "x, binomial, mid_p",
+        [  # 60 episódios a 97,5%: P(X >= x) e mid-p
+            (0, 1.000, 0.891),
+            (1, 0.781, 0.613),
+            (2, 0.444, 0.317),
+            (3, 0.190, 0.126),
+            (4, 0.063, 0.040),
+            (5, 0.017, 0.010),
+        ],
+    )
+    def test_binomial_and_mid_p_table(self, x, binomial, mid_p):
+        assert binomial_test(_hits(x, 60), 0.975)["p-value"] == pytest.approx(binomial, abs=5e-4)
+        assert mid_p_test(_hits(x, 60), 0.975)["p-value"] == pytest.approx(mid_p, abs=5e-4)
+
+    def test_binomial_matches_scipy(self):
+        for _ in range(200):
+            n = int(self.rng.integers(5, 400))
+            p = float(self.rng.uniform(0.001, 0.3))
+            x = int(self.rng.integers(0, n + 1))
+            for alternative in ("greater", "less", "two-sided"):
+                result = binomial_test(_hits(x, n), 1 - p, alternative=alternative)
+                expected = stats.binomtest(x, n, p, alternative=alternative).pvalue
+                assert result["p-value"] == pytest.approx(expected, rel=1e-9, abs=1e-12)
+
+    def test_binomial_size_and_region(self):
+        result = binomial_test(_hits(4, 58), 0.975)
+        assert result["p-value"] == pytest.approx(0.057, abs=5e-4)
+        assert result["size"] == pytest.approx(0.0149, abs=5e-5)
+        assert result["non-rejection region"] == (0, 4)
+        assert result["decision"] == "Fail to reject H0"
+        assert mid_p_test(_hits(4, 58), 0.975)["decision"] == "Reject H0"
+        # o tamanho efetivo nunca passa do nominal no teste exato
+        for n in (20, 60, 250, 1000):
+            assert binomial_test(_hits(0, n), 0.99)["size"] <= 0.05
+
+    def test_binomial_alternatives(self):
+        hits = _hits(0, 500)  # zero violações a 99%: conservador
+        assert binomial_test(hits, 0.99)["decision"] == "Fail to reject H0"
+        assert binomial_test(hits, 0.99, alternative="less")["decision"] == "Reject H0"
+        assert binomial_test(hits, 0.99, alternative="two-sided")["decision"] == "Reject H0"
+        with pytest.raises(ValueError):
+            binomial_test(hits, 0.99, alternative="bigger")
+
+    def test_binomial_power(self):
+        result = binomial_power(60, 0.975, [0.05, 0.075, 0.10])
+        assert result["non-rejection region"] == (0, 4)
+        assert result["size"] == pytest.approx(0.0171, abs=5e-5)
+        powers = [result["power"][r] for r in (0.05, 0.075, 0.10)]
+        assert powers == pytest.approx([0.18, 0.47, 0.73], abs=5e-3)
+        assert binomial_power(60, 0.975, 0.025)["power"][0.025] == pytest.approx(result["size"])
+        assert binomial_power(60, 0.975, mid_p=True)["size"] > result["size"]
+
+    # ==================== POISSON-BINOMIAL ====================
+    def test_poisson_binomial_pmf(self):
+        probs = self.rng.uniform(0, 0.2, 300)
+        pmf = poisson_binomial_pmf(probs)
+        assert pmf.sum() == pytest.approx(1.0)
+        assert (pmf >= 0).all()
+        assert np.dot(np.arange(pmf.size), pmf) == pytest.approx(probs.sum())
+        # comparação com simulação
+        draws = (self.rng.random((20000, probs.size)) < probs).sum(axis=1)
+        assert np.mean(draws <= 30) == pytest.approx(pmf[:31].sum(), abs=0.01)
+
+    def test_poisson_binomial_equals_binomial(self):
+        for x in range(6):
+            for alternative in ("greater", "less", "two-sided"):
+                pb = poisson_binomial_test(_hits(x, 60), [0.025] * 60, alternative=alternative)
+                b = binomial_test(_hits(x, 60), 0.975, alternative=alternative)
+                assert pb["p-value"] == pytest.approx(b["p-value"])
+                assert pb["non-rejection region"] == b["non-rejection region"]
+
+    def test_poisson_binomial_heterogeneous(self):
+        # coberturas acima da nominal explicam mais violações
+        hits = _hits(4, 58)
+        probs = np.full(58, 0.039)
+        assert binomial_test(hits, 0.975)["p-value"] < poisson_binomial_test(hits, probs)["p-value"]
+        assert poisson_binomial_test(hits, probs)["expected violations"] == pytest.approx(58 * 0.039)
+        with pytest.raises(ValueError):
+            poisson_binomial_test(hits, probs[:-1])
+        with pytest.raises(ValueError):
+            poisson_binomial_test(hits, np.full(58, 1.5))
 
     # ==================== DURATION ====================
     def test_duration_restricted_is_censored_exponential(self):

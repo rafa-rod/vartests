@@ -1,5 +1,13 @@
 from . import version
-from .coverage import failure_rate, kupiec_test
+from .coverage import (
+    binomial_power,
+    binomial_test,
+    failure_rate,
+    kupiec_test,
+    mid_p_test,
+    poisson_binomial_pmf,
+    poisson_binomial_test,
+)
 from .distribution import (
     berkowitz_tail_test,
     berkowtiz_tail_test,
@@ -18,6 +26,11 @@ __all__ = [
     # Coverage
     "failure_rate",
     "kupiec_test",
+    "binomial_test",
+    "mid_p_test",
+    "poisson_binomial_test",
+    "poisson_binomial_pmf",
+    "binomial_power",
     # Independence
     "duration_test",
     # Distribution
