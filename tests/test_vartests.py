@@ -159,9 +159,22 @@ class TestClass:
         assert pit.index.equals(pnl.index[250:])
         assert ((pit > 0) & (pit < 1)).all()
 
+        # o PIT não depende da escala dos dados (reais, % ou fração)
+        for scale in (0.01, 100):
+            scaled = garch_pit(pnl * scale, volatility_window=250, verbose=False)
+            assert np.allclose(scaled, pit, atol=1e-3)  # tolerância do otimizador
+
         with pytest.warns(DeprecationWarning):
             result = berkowtiz_tail_test(pd.DataFrame(pnl.to_numpy()), volatility_window=250)
         assert result["decision"] in ("Reject H0", "Fail to reject H0")
+
+    def test_garch_pit_berkowitz_normal_data(self):
+        """Ponta a ponta: retornos normais, GARCH(1,1) normal, Berkowitz não rejeita."""
+        pnl = pd.DataFrame(self.rng.normal(0, 0.01, 500))
+        pit = garch_pit(pnl, volatility_window=250, verbose=False)
+        for var_conf_level in (0.95, 0.99):
+            result = berkowitz_tail_test(pit, var_conf_level=var_conf_level)
+            assert result["decision"] == "Fail to reject H0"
 
     def test_version(self):
         assert vartests.__version__ == "0.3.0"

@@ -71,17 +71,30 @@ def garch_pit(
         raise ValueError("pnl must be longer than volatility_window.")
 
     pit = np.empty(values.size - volatility_window)
+    failures = 0
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for t in tqdm(range(pit.size), disable=not verbose, desc="GARCH(1,1)"):
+            window = values[t : volatility_window + t]
+            # escala só da janela: o PIT não muda com a escala e o otimizador
+            # do arch converge melhor com dados de ordem de grandeza 1
+            scale = window.std(ddof=1)
+            if not scale > 0:
+                raise ValueError("pnl: a window has zero variance.")
             fit = arch.arch_model(
-                values[t : volatility_window + t], vol="GARCH", dist="normal", rescale=False
-            ).fit(disp="off")
+                window / scale, vol="GARCH", dist="normal", rescale=False
+            ).fit(disp="off", show_warning=False)
+            failures += fit.convergence_flag != 0
             forecast = fit.forecast(horizon=1, reindex=False)
             mu = forecast.mean.to_numpy()[-1, 0]
             sigma = np.sqrt(forecast.variance.to_numpy()[-1, 0])
-            pit[t] = stats.norm.cdf((values[volatility_window + t] - mu) / sigma)
+            pit[t] = stats.norm.cdf((values[volatility_window + t] / scale - mu) / sigma)
 
+    if failures:
+        warnings.warn(
+            f"{failures} of {pit.size} GARCH(1,1) fits did not converge.", RuntimeWarning,
+            stacklevel=2,
+        )
     return pd.Series(pit, index=index[volatility_window:], name="pit")
 
 
