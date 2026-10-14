@@ -117,24 +117,24 @@ Under H0 the time between violations is exponential (Weibull shape `b = 1`); `b 
 
 ### Distribution
 
-The Berkowitz test needs the probability integral transform (PIT) of each realized PnL under the distribution forecast by your model, `u_t = F_t(PnL_t)`:
+The Berkowitz test checks whether losses beyond the VaR have the size a normal VaR model predicts, not only how often they happen. It takes the realized PnL and the VaR forecast for each day, in the same unit:
 
 ```python
-vartests.berkowitz_tail_test(pit, var_conf_level=0.99, conf_level=0.95)
+vartests.berkowitz_tail_test(pnl, var, var_conf_level=0.99, conf_level=0.95)
 ```
 
-If your VaR model is a GARCH(1,1) with normal innovations, `garch_pit` computes the PIT by re-estimating the model on a rolling window, with no look-ahead:
-
-```python
-pit = vartests.garch_pit(pnl, volatility_window=252)
-vartests.berkowitz_tail_test(pit, var_conf_level=0.99, conf_level=0.95)
-```
+The test assumes a normal VaR with zero mean, so the forecast standard deviation is `|VaR_t| / z`, where `z` is the normal quantile of `var_conf_level`. The VaR can be reported as a positive loss or a negative return, as long as all values have the same sign. In the example file, the test rejects H0: the largest loss is about 3.3 times the VaR, much more than a normal tail allows.
 
 Parametric models such as EWMA and GARCH often assume zero mean:
 
 ```python
 vartests.zero_mean_test(pnl, conf_level=0.95)
 ```
+
+## Changes in 0.4.0
+
+- `berkowitz_tail_test(pnl, var, ...)` now takes the realized PnL and the VaR series, instead of the PIT, and assumes a normal VaR with zero mean.
+- `berkowtiz_tail_test` (misspelled, deprecated in 0.3.0) was removed.
 
 ## Changes in 0.3.0
 
@@ -143,7 +143,7 @@ Version 0.3.0 fixes errors and changes the output of some functions:
 - `kupiec_test` no longer rejects automatically with zero violations and returns the p-value.
 - `duration_test` fixes the likelihood when the series does not end with a violation (the usual case); p-values change in most samples.
 - `zero_mean_test` works with pandas 2 and 3 and accepts Series.
-- `berkowitz_tail_test` receives the PIT of the model being tested. The old `berkowtiz_tail_test(pnl, ...)` still works, with a deprecation warning, and is equivalent to `berkowitz_tail_test(garch_pit(pnl), ...)`; results differ slightly because the conditional mean is now forecast without look-ahead.
+- `berkowitz_tail_test` receives the PIT of the model being tested. Results differ slightly from 0.2.x because the conditional mean is now forecast without look-ahead.
 - Result keys are standardized (`statistic`, `p-value`, `decision`).
 - New tests: `binomial_test`, `mid_p_test`, `poisson_binomial_test` and `binomial_power`.
 

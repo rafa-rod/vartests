@@ -10,7 +10,6 @@ from .coverage import (
 )
 from .distribution import (
     berkowitz_tail_test,
-    berkowtiz_tail_test,
     garch_pit,
     zero_mean_test,
 )
@@ -37,6 +36,4 @@ __all__ = [
     "zero_mean_test",
     "garch_pit",
     "berkowitz_tail_test",
-    # Deprecated
-    "berkowtiz_tail_test",
 ]

@@ -14,8 +14,6 @@ from ._validation import _as_float_array, _check_level, _decision
 
 SeriesLike = Union[List[float], np.ndarray, pd.Series, pd.DataFrame]
 
-_PIT_EPS = 1e-12
-
 
 def zero_mean_test(data: SeriesLike, true_mu: float = 0, conf_level: float = 0.95) -> Dict:
     """Teste t bilateral para a média da distribuição.
@@ -56,7 +54,7 @@ def garch_pit(
     Para cada t, ajusta o modelo nas `volatility_window` observações anteriores e
     calcula u_t = Phi((r_t - mu_t) / sigma_t) com a previsão de 1 passo. Não usa
     dados futuros. Use apenas se o seu modelo de VaR for um GARCH(1,1) normal;
-    caso contrário, informe ao `berkowitz_tail_test` o PIT do seu próprio modelo.
+    útil para outros testes de distribuição sobre o PIT.
 
     Parameters:
         pnl (array-like):        PnL ou retornos
@@ -98,18 +96,43 @@ def garch_pit(
     return pd.Series(pit, index=index[volatility_window:], name="pit")
 
 
-def berkowitz_tail_test(
-    pit: SeriesLike, var_conf_level: float = 0.99, conf_level: float = 0.95
-) -> Dict:
-    """Berkowitz (2001), teste de cauda (likelihood censurada).
+def _standardize_by_var(pnl: np.ndarray, var: np.ndarray, var_conf_level: float) -> np.ndarray:
+    """z_t = PnL_t / sigma_t, com sigma_t = |VaR_t| / Phi^-1(var_conf_level) (VaR normal, média zero).
 
-    Recebe o PIT do modelo avaliado, u_t = F_t(r_t), em que F_t é a distribuição
-    prevista pelo modelo de VaR para o dia t. Sob H0, z_t = Phi^-1(u_t) ~ N(0, 1).
-    Só a cauda abaixo de Phi^-1(1 - var_conf_level) é observada; o resto é
-    censurado. LR ~ qui-quadrado(2) (média e desvio-padrão).
+    Equivale a Phi^-1(u_t), em que u_t é o PIT; calcular direto evita perder
+    precisão nas caudas.
+    """
+    if pnl.size != var.size:
+        raise ValueError("pnl and var must have the same length.")
+    if (var == 0).any():
+        raise ValueError("var: values must be different from zero.")
+    if (var > 0).any() and (var < 0).any():
+        raise ValueError("var: all values must have the same sign (losses as positive or negative).")
+    sigma = np.abs(var) / stats.norm.ppf(var_conf_level)
+    return pnl / sigma
+
+
+def berkowitz_tail_test(
+    pnl: SeriesLike,
+    var: SeriesLike,
+    var_conf_level: float = 0.99,
+    conf_level: float = 0.95,
+) -> Dict:
+    """Berkowitz (2001), teste de cauda (likelihood censurada), para VaR normal.
+
+    Recebe o PnL realizado e o VaR previsto para cada dia. Supõe que o modelo
+    de VaR é normal com média zero, de modo que o desvio previsto é
+    sigma_t = |VaR_t| / Phi^-1(var_conf_level) e o PIT é u_t = Phi(PnL_t / sigma_t).
+    Sob H0, z_t = Phi^-1(u_t) ~ N(0, 1). Só a cauda abaixo de
+    Phi^-1(1 - var_conf_level), ou seja, as perdas além do VaR, é observada;
+    o resto é censurado. LR ~ qui-quadrado(2) (média e desvio-padrão).
+
+    O VaR pode vir positivo (perda) ou negativo (retorno), desde que todos os
+    valores tenham o mesmo sinal.
 
     Parameters:
-        pit (array-like):       valores u_t em (0, 1) previstos pelo modelo
+        pnl (array-like):       PnL ou retornos realizados
+        var (array-like):       VaR previsto para cada dia, na mesma unidade do PnL
         var_conf_level (float): nível de confiança do VaR
         conf_level (float):     nível de confiança do teste
     Returns:
@@ -117,11 +140,9 @@ def berkowitz_tail_test(
     """
     var_conf_level = _check_level(var_conf_level, "var_conf_level")
     conf_level = _check_level(conf_level, "conf_level")
-    u = _as_float_array(pit, "pit")
-    if ((u < 0) | (u > 1)).any():
-        raise ValueError("pit: values must be between 0 and 1.")
-
-    z = stats.norm.ppf(np.clip(u, _PIT_EPS, 1 - _PIT_EPS))
+    z = _standardize_by_var(
+        _as_float_array(pnl, "pnl"), _as_float_array(var, "var"), var_conf_level
+    )
     cut = stats.norm.ppf(1 - var_conf_level)
     tail = z[z < cut]
     n_censored = z.size - tail.size
@@ -157,7 +178,7 @@ def berkowitz_tail_test(
     pvalue = float(stats.chi2.sf(lr, 2))
 
     return {
-        "null hypothesis": "Tail of the PIT-transformed distribution is Normal(0, 1)",
+        "null hypothesis": "Losses beyond the VaR follow the normal tail implied by the VaR",
         "tail observations": int(tail.size),
         "mu": mu_hat,
         "sigma": sigma_hat,
@@ -169,24 +190,3 @@ def berkowitz_tail_test(
         "decision": _decision(pvalue, conf_level),
     }
 
-
-def berkowtiz_tail_test(
-    pnl: SeriesLike,
-    volatility_window: int = 252,
-    var_conf_level: float = 0.99,
-    conf_level: float = 0.95,
-    random_seed: int = None,
-) -> Dict:
-    """Descontinuada: use `berkowitz_tail_test(garch_pit(pnl), ...)`.
-
-    Mantida por compatibilidade com versões <= 0.2.x. `random_seed` é ignorado.
-    """
-    warnings.warn(
-        "berkowtiz_tail_test is deprecated and will be removed; use "
-        "berkowitz_tail_test(garch_pit(pnl, volatility_window), ...) instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return berkowitz_tail_test(
-        garch_pit(pnl, volatility_window), var_conf_level=var_conf_level, conf_level=conf_level
-    )
