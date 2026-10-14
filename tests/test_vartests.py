@@ -13,7 +13,6 @@ from vartests import (
     mid_p_test,
     poisson_binomial_pmf,
     poisson_binomial_test,
-    berkowtiz_tail_test,
     duration_test,
     failure_rate,
     garch_pit,
@@ -73,7 +72,11 @@ class TestClass:
         with pytest.raises(ValueError):
             kupiec_test(self.hits, var_conf_level=1.0)
         with pytest.raises(ValueError):
-            berkowitz_tail_test([0.1, 1.2])
+            berkowitz_tail_test([1.0, -2.0], [-1.0])  # tamanhos diferentes
+        with pytest.raises(ValueError):
+            berkowitz_tail_test([1.0, -2.0], [-1.0, 1.0])  # sinais misturados
+        with pytest.raises(ValueError):
+            berkowitz_tail_test([1.0, -2.0], [-1.0, 0.0])  # VaR zero
 
     # ==================== FAILURE RATE ====================
     def test_failure_rate(self):
@@ -230,21 +233,43 @@ class TestClass:
         assert zero_mean_test(data + 1, true_mu=1)["decision"] == "Fail to reject H0"
 
     # ==================== BERKOWITZ ====================
+    def _normal_var(self, n=1000, var_conf_level=0.99):
+        """Volatilidade variando no tempo e o VaR normal correspondente (negativo)."""
+        sigma = 1000 * np.exp(0.3 * np.sin(np.arange(n) / 50))
+        return sigma, -sigma * stats.norm.ppf(var_conf_level)
+
     def test_berkowitz_size_and_power(self):
-        size = [berkowitz_tail_test(self.rng.random(1000))["p-value"] < 0.05 for _ in range(200)]
+        sigma, var = self._normal_var()
+        size = [
+            berkowitz_tail_test(self.rng.normal(0, sigma), var)["p-value"] < 0.05
+            for _ in range(200)
+        ]
         assert 0.01 <= np.mean(size) <= 0.10
 
-        def fat_tail_pit():  # t-Student(3) avaliado como se fosse normal
-            x = stats.t.rvs(3, size=1000, random_state=self.rng) / np.sqrt(3)
-            return stats.norm.cdf(x)
+        def fat_tail_pnl():  # t-Student(3) com a mesma variância, VaR calculado como normal
+            return sigma * stats.t.rvs(3, size=sigma.size, random_state=self.rng) / np.sqrt(3)
 
-        power = [berkowitz_tail_test(fat_tail_pit())["p-value"] < 0.05 for _ in range(50)]
+        power = [berkowitz_tail_test(fat_tail_pnl(), var)["p-value"] < 0.05 for _ in range(50)]
         assert np.mean(power) >= 0.8
 
+    def test_berkowitz_var_sign_and_input_types(self):
+        sigma, var = self._normal_var()
+        pnl = self.rng.normal(0, sigma)
+        expected = berkowitz_tail_test(pnl, var)
+        assert berkowitz_tail_test(pnl, -var) == expected  # VaR positivo ou negativo
+        frame = pd.DataFrame({"PnL": pnl, "VaR": var})
+        assert berkowitz_tail_test(frame["PnL"], frame[["VaR"]]) == expected
+        assert berkowitz_tail_test(list(pnl), list(var)) == expected
+
     def test_berkowitz_no_tail_observations(self):
-        result = berkowitz_tail_test(np.full(100, 0.5), var_conf_level=0.99)
+        result = berkowitz_tail_test(np.zeros(100), np.full(100, -1.0), var_conf_level=0.99)
         assert result["statistic"] == pytest.approx(-2 * 100 * np.log(0.99))
         assert result["decision"] == "Fail to reject H0"
+
+    def test_berkowitz_example_file(self):
+        data = pd.read_excel("media/Example.xlsx", index_col=0)
+        result = berkowitz_tail_test(data["PnL"], data["VaR"], var_conf_level=0.99)
+        assert result["tail observations"] == data["Violations"].sum()
 
     def test_garch_pit(self):
         pnl = pd.Series(self.rng.normal(0, 1, 280))
@@ -258,17 +283,12 @@ class TestClass:
             scaled = garch_pit(pnl * scale, volatility_window=250, verbose=False)
             assert np.allclose(scaled, pit, atol=1e-3)  # tolerância do otimizador
 
-        with pytest.warns(DeprecationWarning):
-            result = berkowtiz_tail_test(pd.DataFrame(pnl.to_numpy()), volatility_window=250)
-        assert result["decision"] in ("Reject H0", "Fail to reject H0")
+        # DataFrame de uma coluna também é aceito
+        from_frame = garch_pit(pd.DataFrame(pnl.to_numpy()), volatility_window=250, verbose=False)
+        assert np.allclose(from_frame.to_numpy(), pit.to_numpy())
 
-    def test_garch_pit_berkowitz_normal_data(self):
-        """Ponta a ponta: retornos normais, GARCH(1,1) normal, Berkowitz não rejeita."""
-        pnl = pd.DataFrame(self.rng.normal(0, 0.01, 500))
-        pit = garch_pit(pnl, volatility_window=250, verbose=False)
-        for var_conf_level in (0.95, 0.99):
-            result = berkowitz_tail_test(pit, var_conf_level=var_conf_level)
-            assert result["decision"] == "Fail to reject H0"
+        # a função antiga, com erro de digitação no nome, foi removida na 0.4.0
+        assert not hasattr(vartests, "berkowtiz_tail_test")
 
     def test_version(self):
-        assert vartests.__version__ == "0.3.0"
+        assert vartests.__version__ == "0.4.0"
