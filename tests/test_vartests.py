@@ -8,6 +8,7 @@ from scipy import stats
 import vartests
 from vartests import (
     berkowitz_tail_test,
+    upper_confidence_limit,
     binomial_power,
     binomial_test,
     mid_p_test,
@@ -70,7 +71,7 @@ class TestClass:
         with pytest.raises(TypeError):
             kupiec_test("0101")
         with pytest.raises(ValueError):
-            kupiec_test(self.hits, var_conf_level=1.0)
+            kupiec_test(self.hits, risk_conf_level=1.0)
         with pytest.raises(ValueError):
             berkowitz_tail_test([1.0, -2.0], [-1.0])  # tamanhos diferentes
         with pytest.raises(ValueError):
@@ -85,7 +86,7 @@ class TestClass:
 
     # ==================== KUPIEC ====================
     @pytest.mark.parametrize(
-        "n, var_conf_level, lower, upper",
+        "n, risk_conf_level, lower, upper",
         [  # Tabela 10.1 de Giambiagi (cap. 10): intervalos de não rejeição a 5%
             (250, 0.99, 1, 6),
             (250, 0.999, 0, 1),
@@ -93,21 +94,21 @@ class TestClass:
             (2000, 0.99, 12, 29),
         ],
     )
-    def test_kupiec_giambiagi_table(self, n, var_conf_level, lower, upper):
+    def test_kupiec_giambiagi_table(self, n, risk_conf_level, lower, upper):
         accepted = [
             x
             for x in range(n + 1)
-            if kupiec_test([1] * x + [0] * (n - x), var_conf_level)["decision"]
+            if kupiec_test(x=x, n=n, risk_conf_level=risk_conf_level)["decision"]
             == "Fail to reject H0"
         ]
         assert (accepted[0], accepted[-1]) == (lower, upper)
 
     def test_kupiec_zero_violations(self):
-        result = kupiec_test([0] * 100, var_conf_level=0.99)
+        result = kupiec_test([0] * 100, risk_conf_level=0.99)
         assert result["statistic"] == pytest.approx(-2 * 100 * np.log(0.99))
         assert result["decision"] == "Fail to reject H0"
-        assert kupiec_test([0] * 250, var_conf_level=0.99)["decision"] == "Reject H0"
-        assert kupiec_test([1] * 10, var_conf_level=0.99)["decision"] == "Reject H0"
+        assert kupiec_test([0] * 250, risk_conf_level=0.99)["decision"] == "Reject H0"
+        assert kupiec_test([1] * 10, risk_conf_level=0.99)["decision"] == "Reject H0"
 
     # ==================== BINOMIAL / MID-P ====================
     @pytest.mark.parametrize(
@@ -290,5 +291,94 @@ class TestClass:
         # a função antiga, com erro de digitação no nome, foi removida na 0.4.0
         assert not hasattr(vartests, "berkowtiz_tail_test")
 
+    # ==================== 0.4.1 ====================
+    def test_risk_conf_level_and_deprecated_alias(self):
+        hits = _hits(4, 58)
+        expected = binomial_test(hits, risk_conf_level=0.975)
+        assert binomial_test(hits, 0.975) == expected  # posicional continua igual
+        for func in (binomial_test, mid_p_test, kupiec_test):
+            with pytest.warns(FutureWarning, match="risk_conf_level"):
+                old = func(hits, var_conf_level=0.975)
+            assert old == func(hits, risk_conf_level=0.975)
+            with pytest.raises(TypeError):
+                func(hits, risk_conf_level=0.975, var_conf_level=0.975)
+        with pytest.warns(FutureWarning):
+            binomial_power(60, var_conf_level=0.975)
+        assert binomial_test(hits)["null hypothesis"] == "Probability of failure is 0.01"  # padrão 99%
+
+    def test_counts_instead_of_series(self):
+        hits = _hits(4, 58)
+        for func in (binomial_test, mid_p_test, kupiec_test):
+            assert func(x=4, n=58, risk_conf_level=0.975) == func(hits, risk_conf_level=0.975)
+        assert failure_rate(x=3, n=10) == failure_rate(self.hits)
+        probs = np.full(58, 0.039)
+        assert poisson_binomial_test(x=4, probabilities=probs) == poisson_binomial_test(hits, probs)
+        with pytest.raises(ValueError):
+            binomial_test(hits, x=4, n=58)  # série e contagem ao mesmo tempo
+        with pytest.raises(ValueError):
+            binomial_test(x=4)  # falta n
+        with pytest.raises(ValueError):
+            binomial_test(x=59, n=58)
+        with pytest.raises(ValueError):
+            binomial_test(x=1.5, n=58)
+
+    def test_critical_value(self):
+        result = binomial_test(x=4, n=60, risk_conf_level=0.975)
+        assert result["non-rejection region"] == (0, 4)
+        assert result["critical value"] == 5
+        assert binomial_test(x=5, n=60, risk_conf_level=0.975)["decision"] == "Reject H0"
+        assert binomial_power(60, 0.975)["critical value"] == 5
+
+        less = binomial_test(x=10, n=1000, risk_conf_level=0.99, alternative="less")
+        low, high = less["non-rejection region"]
+        assert less["critical value"] == low - 1
+        assert binomial_test(x=less["critical value"], n=1000, risk_conf_level=0.99,
+                             alternative="less")["decision"] == "Reject H0"
+
+        both = binomial_test(x=10, n=1000, risk_conf_level=0.99, alternative="two-sided")
+        low, high = both["non-rejection region"]
+        assert both["critical value"] == (low - 1, high + 1)
+        # com zero violações esperadas perto de 0, não há como rejeitar por baixo
+        assert binomial_test(x=0, n=60, risk_conf_level=0.975, alternative="two-sided")[
+            "critical value"
+        ][0] is None
+        assert binomial_test(x=0, n=60, risk_conf_level=0.975, alternative="less")["critical value"] is None
+
+    def test_power_keys(self):
+        rates = [2 * 0.025, 3 * 0.025, 4 * 0.025]  # 0.07500000000000001
+        power = binomial_power(60, 0.975, rates)["power"]
+        assert set(power) == {0.05, 0.075, 0.1}
+        assert power[0.075] == pytest.approx(0.47, abs=5e-3)
+
+    def test_pvalue_upper_tail_is_exactly_one(self):
+        assert binomial_test(np.zeros(10), 0.975)["p-value"] == 1.0
+        assert binomial_test(np.ones(10), 0.975, alternative="less")["p-value"] == 1.0
+        assert poisson_binomial_test(np.zeros(10), np.full(10, 0.3))["p-value"] == 1.0
+
+    @pytest.mark.parametrize(
+        "x, n, conf_level, upper",
+        [(0, 60, 0.95, 0.049), (5, 81, 0.95, 0.125), (8, 90, 0.95, 0.155)],
+    )
+    def test_upper_confidence_limit_project_values(self, x, n, conf_level, upper):
+        assert upper_confidence_limit(x=x, n=n, conf_level=conf_level)["upper limit"] == pytest.approx(
+            upper, abs=5e-4
+        )
+
+    def test_upper_confidence_limit(self):
+        n = 60
+        assert upper_confidence_limit(x=0, n=n)["upper limit"] == pytest.approx(1 - 0.05 ** (1 / n))
+        full = upper_confidence_limit(x=n, n=n)
+        assert full["upper limit"] == 1.0 and full["two-sided interval"][1] == 1.0
+        assert upper_confidence_limit(_hits(3, 40)) == upper_confidence_limit(x=3, n=40)
+        for x in (0, 1, 5, 40):
+            result = upper_confidence_limit(x=x, n=40, conf_level=0.9)
+            one_sided = stats.binomtest(x, 40, alternative="less").proportion_ci(0.9, "exact")
+            assert result["upper limit"] == pytest.approx(one_sided.high)
+            low_sided = stats.binomtest(x, 40, alternative="greater").proportion_ci(0.9, "exact")
+            assert result["lower limit"] == pytest.approx(low_sided.low)
+            two = stats.binomtest(x, 40).proportion_ci(0.9, "exact")
+            assert result["two-sided interval"] == pytest.approx((two.low, two.high))
+            assert result["failure rate"] == x / 40
+
     def test_version(self):
-        assert vartests.__version__ == "0.4.0"
+        assert vartests.__version__ == "0.4.1"

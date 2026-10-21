@@ -7,6 +7,7 @@ from .coverage import (
     mid_p_test,
     poisson_binomial_pmf,
     poisson_binomial_test,
+    upper_confidence_limit,
 )
 from .distribution import (
     berkowitz_tail_test,
@@ -24,6 +25,7 @@ __all__ = [
     "__author__",
     # Coverage
     "failure_rate",
+    "upper_confidence_limit",
     "kupiec_test",
     "binomial_test",
     "mid_p_test",

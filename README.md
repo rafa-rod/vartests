@@ -31,6 +31,7 @@
 | Coverage | `mid_p_test` (Lancaster, 1961) | Exact binomial with mid-p correction, closer to the nominal size |
 | Coverage | `poisson_binomial_test` | Exact test when each observation has its own probability of violation |
 | Coverage | `binomial_power` | Size and power of the binomial test for a given sample |
+| Coverage | `upper_confidence_limit` | Highest true failure rate compatible with the result (Clopper-Pearson) |
 | Independence | `duration_test` (Christoffersen and Pelletier, 2004) | Do violations have no memory, i.e. no clusters? |
 | Distribution | `berkowitz_tail_test` (Berkowitz, 2001) | Is the tail of the forecast distribution right? |
 | Distribution | `zero_mean_test` | Is the mean of the PnL zero? (assumption of parametric VaR) |
@@ -60,7 +61,7 @@ Every test returns a dictionary with the same main keys:
 | `p-value` | p-value |
 | `decision` | `"Reject H0"`, `"Fail to reject H0"` or `"Not enough data"` |
 
-Some tests add specific keys, such as `critical value` (chi-square tests), `non-rejection region` and `size` (exact tests) or the estimated parameters.
+Some tests add specific keys, such as `critical value`, `non-rejection region` and `size` (exact tests) or the estimated parameters.
 
 ## Example
 
@@ -75,18 +76,26 @@ violations = data["Violations"]
 pnl = data["PnL"]
 ```
 
-All functions accept a list, NumPy array, Series or single-column DataFrame.
+All functions accept a list, NumPy array, Series or single-column DataFrame. The coverage tests also accept the count directly, as `x` violations in `n` observations, which is handy to reproduce tables or third-party results:
+
+```python
+vartests.binomial_test(x=4, n=58, risk_conf_level=0.975)
+```
 
 ### Coverage
 
 ```python
 vartests.failure_rate(violations)
 
-vartests.kupiec_test(violations, var_conf_level=0.99, conf_level=0.95)
+vartests.kupiec_test(violations, risk_conf_level=0.99, conf_level=0.95)
 
-vartests.binomial_test(violations, var_conf_level=0.99, conf_level=0.95, alternative="greater")
-vartests.mid_p_test(violations, var_conf_level=0.99, conf_level=0.95, alternative="greater")
+vartests.binomial_test(violations, risk_conf_level=0.99, conf_level=0.95, alternative="greater")
+vartests.mid_p_test(violations, risk_conf_level=0.99, conf_level=0.95, alternative="greater")
 ```
+
+`risk_conf_level` is the confidence level of the risk measure (VaR, DaR or another quantile). The old name `var_conf_level` still works in the coverage tests, with a `FutureWarning`.
+
+In the exact tests, `critical value` is the first number of violations that rejects H0 (for `"less"`, the largest one; for `"two-sided"`, a pair with the bound on each side, or `None` where rejection is impossible).
 
 `alternative="greater"` (default of the exact tests) tests underestimation of risk, i.e. too many violations. Use `"two-sided"` to also detect a conservative model, or `"less"` for that alone.
 
@@ -97,8 +106,18 @@ Because the binomial distribution is discrete, the exact test rejects a correct 
 A non-rejection is only informative if the test has power. `binomial_power` shows the chance of detecting a wrong model:
 
 ```python
-vartests.binomial_power(n=60, var_conf_level=0.975, true_failure_rate=[0.05, 0.075, 0.10])
-# {'non-rejection region': (0, 4), 'size': 0.017, 'power': {0.05: 0.18, 0.075: 0.47, 0.1: 0.73}}
+vartests.binomial_power(n=60, risk_conf_level=0.975, true_failure_rate=[0.05, 0.075, 0.10])
+# {'critical value': 5, 'non-rejection region': (0, 4), 'size': 0.017,
+#  'power': {0.05: 0.18, 0.075: 0.47, 0.1: 0.73}}
+```
+
+The rates used as keys of `power` are rounded to 10 decimals, so `power[0.075]` works even when the rate was computed as `3 * 0.025`.
+
+`upper_confidence_limit` states what the result guarantees, without overstating it: the highest true failure rate compatible with the observed count (one-sided Clopper-Pearson). It also returns the one-sided lower limit and the two-sided interval:
+
+```python
+vartests.upper_confidence_limit(x=0, n=60, conf_level=0.95)["upper limit"]
+# 0.049: with no violations in 60 episodes, the true rate is at most 4.9%
 ```
 
 When the probability of violation differs across observations (a VaR with a varying level, or the expected coverage of an estimator at each episode of a Drawdown at Risk), use the Poisson-binomial test with one probability per observation:
@@ -130,6 +149,15 @@ Parametric models such as EWMA and GARCH often assume zero mean:
 ```python
 vartests.zero_mean_test(pnl, conf_level=0.95)
 ```
+
+## Changes in 0.4.1
+
+- New `upper_confidence_limit`: Clopper-Pearson limits of the true failure rate.
+- `binomial_test`, `mid_p_test`, `poisson_binomial_test` and `binomial_power` return `critical value`.
+- Coverage tests accept the count (`x`, `n`) instead of the series of violations.
+- `risk_conf_level` replaces `var_conf_level` in the coverage tests; the old name still works, with a `FutureWarning`.
+- Keys of `binomial_power(...)["power"]` are rounded to 10 decimals.
+- Exact p-values of the extreme counts are exactly 1 (previously `0.9999999999999999` in some cases).
 
 ## Changes in 0.4.0
 
